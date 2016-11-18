@@ -1,0 +1,1 @@
+<iframe src="https://api.paymentwall.com/api/ps/?key=f071e0d5d4d1ceeda2f55a7cb16bd696&uid='.$_SESSION['JID'].'&widget=p4_1" width="371" height="450" frameborder="0"></iframe>
