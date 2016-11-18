@@ -1,0 +1,66 @@
+<?php
+define('SECRET', '695b05d445b80b3f2b95se98ab48e448');
+define('CREDIT_TYPE_CHARGEBACK', 2);
+$ipsWhitelist = array(
+    '174.36.92.186',
+    '174.36.96.66',
+    '174.36.92.187',
+    '174.36.92.192',
+    '174.37.14.28',
+);
+$userId       = isset($_GET['uid']) ? $_GET['uid'] : null;
+$credits      = isset($_GET['currency']) ? $_GET['currency'] : null;
+$type         = isset($_GET['type']) ? $_GET['type'] : null;
+$refId        = isset($_GET['ref']) ? $_GET['ref'] : null;
+$signature    = isset($_GET['sig']) ? $_GET['sig'] : null;
+$result       = false;
+if (!empty($userId) && !empty($credits) && isset($type) && !empty($refId) && !empty($signature)) {
+    $signatureParams     = array(
+        'uid' => $userId,
+        'currency' => $credits,
+        'type' => $type,
+        'ref' => $refId
+    );
+    $signatureCalculated = generateSignature($signatureParams, SECRET);
+    if (in_array($_SERVER['REMOTE_ADDR'], $ipsWhitelist) && ($signature == $signatureCalculated)) {
+        $result = true;
+		
+		include('../_incl/config.php');
+		
+        if ($type == CREDIT_TYPE_CHARGEBACK) {
+            $query    = $sql->Query("UPDATE SK_Silk SET silk_own = silk_own + $credits WHERE JID = '$userId'");
+            $username = $sql->fetcharray($sql->Query("SELECT StrUserID FROM TB_User WHERE JID ='$userId'"));
+            $username = $username[0];
+            //$query1   = $sql->Query("INSERT INTO _Silk_Log VALUES('$username','$credits',GETDATE())");
+        } else {
+			
+            $is_exist = $sql->Query("SELECT * FROM SK_Silk WHERE JID = '$userId'");
+            $num      = $sql->rowcount($is_exist);
+            if (!$num) {
+                $query    = $sql->Query("INSERT INTO SK_Silk (JID,silk_own,silk_gift,silk_point) VALUES ($userId,$credits,0,0)");
+                $username = $sql->fetcharray($sql->Query("SELECT StrUserID FROM TB_User WHERE JID ='$userId'"));
+                $username = $username[0];
+                //$query1   = $sql->Query("INSERT INTO _Silk_Log VALUES('$username','$credits',GETDATE())");
+            } else {
+                $query    = $sql->Query("UPDATE SK_Silk SET silk_own = silk_own + $credits WHERE JID = '$userId'");
+                $username = $sql->fetcharray($sql->Query("SELECT StrUserID FROM TB_User WHERE JID ='$userId'"));
+                $username = $username[0];
+                //$query1   = $sql->Query("INSERT INTO _Silk_Log VALUES('$username','$credits',GETDATE())");
+            }
+			
+        }
+    }
+}
+if ($result) {
+    echo 'OK';
+}
+function generateSignature($params, $secret)
+{
+    $str = '';
+    foreach ($params as $k => $v) {
+        $str .= "$k=$v";
+    }
+    $str .= $secret;
+    return md5($str);
+}
+?>
